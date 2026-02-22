@@ -3,22 +3,18 @@ import apiClient from './api';
 export const chatService = {
   getConversations: async () => {
     const response = await apiClient.get('/chat/conversations');
-    return response.data;
+    return response;
   },
 
   // Placeholder para futuras funcionalidades
   sendMessage: async (conversationId, message) => {
-    const response = await apiClient.post(`/chat/${conversationId}/messages`, {
-      message,
-    });
-    return response.data;
+    const response = await apiClient.post(`/chat/conversations/${conversationId}/messages`, message);
+    return response;
   },
 
-  createConversation: async (participantId) => {
-    const response = await apiClient.post('/chat/conversations', {
-      participantId,
-    });
-    return response.data;
+  createConversation: async (payload) => {
+    const response = await apiClient.post('/chat/conversations', payload);
+    return response;
   },
 };
 

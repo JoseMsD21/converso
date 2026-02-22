@@ -22,7 +22,8 @@ fastify.setErrorHandler(errorHandler);
 const start = async () => {
   try {
     const port = process.env.PORT || 4000;
-    await fastify.listen({ port, host: '0.0.0.0' });
+    const host = process.env.HOST || '127.0.0.1';
+    await fastify.listen({ port, host });
     console.log(`✓ Backend listening on port ${port} (${process.env.NODE_ENV || 'development'})`);
   } catch (err) {
     fastify.log.error(err);
