@@ -9,7 +9,7 @@ fastify.register(chatRoutes, { prefix: '/api/chat' });
 fastify.get('/api/health', async (request, reply) => {
   return { 
     status: 'OK', 
-    service: 'Converso Backend',
+    service: 'CONNEX Backend',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
   };

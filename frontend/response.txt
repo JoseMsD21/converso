@@ -1,0 +1,1 @@
+{"status":"OK","service":"CONNEX Backend","timestamp":"2026-02-22T22:56:12.742Z","environment":"development"}
