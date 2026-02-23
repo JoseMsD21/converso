@@ -19,4 +19,13 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Attach Authorization header from localStorage
+apiClient.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem('connex_token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  } catch (e) {}
+  return config;
+});
+
 export default apiClient;

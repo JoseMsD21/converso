@@ -6,6 +6,11 @@ export const chatService = {
     return response;
   },
 
+  getConversationById: async (id) => {
+    const response = await apiClient.get(`/chat/conversations/${id}`);
+    return response;
+  },
+
   // Placeholder para futuras funcionalidades
   sendMessage: async (conversationId, message) => {
     const response = await apiClient.post(`/chat/conversations/${conversationId}/messages`, message);

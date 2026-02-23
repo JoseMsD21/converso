@@ -89,6 +89,40 @@ services/        ← Lógica de negocio
 utils/           ← Funciones helper
 ```
 
+### Configuración temporal de SQL Server (para pruebas local)
+
+Hemos añadido soporte opcional para SQL Server para facilitar pruebas locales antes de migrar a una base real.
+
+- Variables de entorno (añadir a `backend/.env` para usar):
+  - `MSSQL_USER` (por defecto `sa`)
+  - `MSSQL_PASSWORD` (por defecto `Your_password123`)
+  - `MSSQL_SERVER` (por defecto `localhost`)
+  - `MSSQL_DATABASE` (por defecto `connex_dev`)
+  - `MSSQL_POOL_MAX` (opcional, por defecto `10`)
+
+- Archivos añadidos:
+  - `backend/src/db/sqlServer.js` — helper para crear el pool de conexión (lee variables de entorno).
+  - `backend/src/db/initDb.js` — script de inicialización que crea tablas `users`, `conversations` y `messages` si no existen. Ejecuta `node src/db/initDb.js` desde `backend/`.
+
+Cómo usar (local):
+
+1. Rellena `backend/.env` con las variables anteriores (o deja valores por defecto para probar en `localhost`).
+2. Instala dependencias: `npm install` en `backend/` (ya debe incluir `mssql`).
+3. Ejecuta el script de inicialización: `node src/db/initDb.js`.
+4. Si todo va bien, el servidor podrá usar SQL Server. Si no hay SQL disponible, el servicio usará el almacenamiento en memoria como fallback.
+
+Cuando quieras migrar a SQL Server real, proporciona credenciales y yo actualizaré los scripts para crear migraciones formales y reemplazar por completo el servicio en memoria.
+
+Nota para instancias nombradas (ej. `SQLEXPRESS`):
+
+- Si tu SQL Server corre en una instancia nombrada local, añade en `backend/.env`:
+  - `MSSQL_SERVER=localhost` (o tu host)
+  - `MSSQL_INSTANCE=SQLEXPRESS`
+
+Alternativa: si tu instancia escucha en un puerto TCP fijo, añade `MSSQL_PORT=1433` y la librería usará el puerto en vez del nombre de instancia.
+
+Si usas autenticación integrada (Windows Authentication) necesitaremos configurar la conexión con `integratedSecurity`/SSPI: indícamelo y ajusto la configuración y requisitos (paquetes nativos).
+
 **Ejemplo de flujo:**
 ```
 POST /api/chat/create

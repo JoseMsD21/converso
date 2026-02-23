@@ -1,4 +1,5 @@
 const chatService = require('../services/chatService');
+const agentService = require('../services/agentService');
 const { sendSuccess, sendError } = require('../utils/response');
 const AppError = require('../utils/AppError');
 
@@ -36,12 +37,30 @@ exports.createConversation = async (request, reply) => {
 exports.postMessage = async (request, reply) => {
   try {
     const { id } = request.params;
-    const { text, from } = request.body || {};
-    if (!text) return sendError(reply, 'Mensaje vacío', 400);
-    const msg = await chatService.addMessage(id, { text, from });
+    const { content, senderId } = request.body || {};
+    if (!content) return sendError(reply, 'Mensaje vacío', 400);
+    
+    const msg = await chatService.addMessage(id, { content, senderId });
     if (!msg) return sendError(reply, 'Conversación no encontrada', 404);
+    
+    // Emit Socket.IO event if server is available
+    try {
+      if (request.server && request.server.io) {
+        const io = request.server.io;
+        const room = `conversation:${id}`;
+        io.to(room).emit('message', { 
+          conversationId: id, 
+          message: msg 
+        });
+        console.log(`Message emitted to room ${room}`);
+      }
+    } catch (e) {
+      console.warn('Socket emit warning:', e.message);
+    }
+    
     sendSuccess(reply, msg, 201);
   } catch (error) {
+    console.error('postMessage error:', error);
     sendError(reply, 'Error al enviar mensaje', 500);
   }
 };

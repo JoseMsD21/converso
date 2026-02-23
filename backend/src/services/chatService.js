@@ -1,81 +1,165 @@
-// Servicio simple en memoria para conversaciones y mensajes
 const { v4: uuidv4 } = require('uuid');
+const db = require('../db/sqlServer');
 
-const conversations = [
+// in-memory fallback (kept for development when MSSQL not configured)
+let conversations = [
   {
-    id: '1',
-    name: 'María García',
-    participantId: 'u1',
-    channel: 'WhatsApp',
-    lastMessage: 'Hola, ¿cuál es el precio del producto?',
-    timestamp: new Date().toISOString(),
-    status: 'open',
-    unread: 3,
+    id: 'conv-1',
+    name: 'Demo Conversation',
+    participantId: 'demo1',
+    channel: 'web',
+    lastMessage: 'Hola desde CONNEX',
     messages: [
-      { id: uuidv4(), from: 'user', text: 'Hola, ¿cuál es el precio del producto?', timestamp: new Date().toISOString() }
-    ]
+      { id: 'm-1', senderId: 'demo1', content: 'Hola, ¿en qué puedo ayudar?', createdAt: new Date().toISOString() },
+    ],
   },
-  {
-    id: '2',
-    name: 'Juan López',
-    participantId: 'u2',
-    channel: 'Telegram',
-    lastMessage: 'Gracias por la información',
-    timestamp: new Date().toISOString(),
-    status: 'resolved',
-    unread: 0,
-    messages: [
-      { id: uuidv4(), from: 'user', text: 'Gracias por la información', timestamp: new Date().toISOString() }
-    ]
-  }
 ];
 
-exports.fetchConversations = async (opts = {}) => {
-  const { search = '', status } = opts;
-  let list = conversations;
-  if (search) {
-    const q = search.toLowerCase();
-    list = list.filter(c => c.name.toLowerCase().includes(q) || (c.lastMessage || '').toLowerCase().includes(q));
-  }
-  if (status) {
-    list = list.filter(c => c.status === status);
-  }
+module.exports = {
+  // Fetch conversations (SQL when configured, else in-memory)
+  fetchConversations: async ({ search, status } = {}) => {
+    if (db.isConfigured) {
+      try {
+        const pool = await db.connect();
+        const res = await pool.request().query('SELECT * FROM dbo.conversations ORDER BY createdAt DESC');
+        return { total: res.recordset.length, items: res.recordset };
+      } catch (err) {
+        console.warn('DB fetchConversations failed, falling back to memory:', err.message || err);
+      }
+    }
+    return { total: conversations.length, items: conversations };
+  },
 
-  return {
-    total: list.length,
-    conversations: list
-  };
+  getConversationById: async (id) => {
+    if (db.isConfigured) {
+      try {
+        const pool = await db.connect();
+        const res = await pool.request().input('id', db.mssql.NVarChar(50), id).query('SELECT * FROM dbo.conversations WHERE id = @id');
+        if (res.recordset.length === 0) return null;
+        const conv = res.recordset[0];
+        const msgs = await pool.request().input('convId', db.mssql.NVarChar(50), id).query('SELECT * FROM dbo.messages WHERE conversationId = @convId ORDER BY createdAt ASC');
+        conv.messages = msgs.recordset || [];
+        return conv;
+      } catch (err) {
+        console.warn('DB getConversationById failed, falling back to memory:', err.message || err);
+      }
+    }
+    return conversations.find(c => c.id === id) || null;
+  },
+
+  createConversation: async (payload) => {
+    const newConv = {
+      id: 'conv-' + uuidv4(),
+      name: payload.name || null,
+      participantId: payload.participantId || payload.participant || null,
+      channel: payload.channel || 'web',
+      lastMessage: payload.lastMessage || null,
+      createdAt: new Date().toISOString(),
+      messages: [],
+    };
+
+    if (db.isConfigured) {
+      try {
+        const pool = await db.connect();
+        await pool.request()
+          .input('id', db.mssql.NVarChar(50), newConv.id)
+          .input('name', db.mssql.NVarChar(200), newConv.name)
+          .input('participantId', db.mssql.NVarChar(100), newConv.participantId)
+          .input('channel', db.mssql.NVarChar(50), newConv.channel)
+          .input('lastMessage', db.mssql.NVarChar(db.mssql.MAX), newConv.lastMessage)
+          .query('INSERT INTO dbo.conversations (id, name, participantId, channel, lastMessage, createdAt) VALUES (@id, @name, @participantId, @channel, @lastMessage, SYSUTCDATETIME())');
+        return newConv;
+      } catch (err) {
+        console.warn('DB createConversation failed, falling back to memory:', err.message || err);
+      }
+    }
+
+    conversations.unshift(newConv);
+    return newConv;
+  },
+
+  addMessage: async (conversationId, message) => {
+    const newMsg = {
+      id: 'm-' + uuidv4(),
+      conversationId,
+      senderId: message.senderId || 'system',
+      content: message.content || '',
+      createdAt: new Date().toISOString(),
+    };
+
+    if (db.isConfigured) {
+      try {
+        const pool = await db.connect();
+        await pool.request()
+          .input('id', db.mssql.NVarChar(50), newMsg.id)
+          .input('conversationId', db.mssql.NVarChar(50), newMsg.conversationId)
+          .input('senderId', db.mssql.NVarChar(100), newMsg.senderId)
+          .input('content', db.mssql.NVarChar(db.mssql.MAX), newMsg.content)
+          .query('INSERT INTO dbo.messages (id, conversationId, senderId, content, createdAt) VALUES (@id, @conversationId, @senderId, @content, SYSUTCDATETIME())');
+
+        // update lastMessage on conversation
+        await pool.request()
+          .input('conversationId', db.mssql.NVarChar(50), conversationId)
+          .input('lastMessage', db.mssql.NVarChar(db.mssql.MAX), newMsg.content)
+          .query('UPDATE dbo.conversations SET lastMessage = @lastMessage WHERE id = @conversationId');
+
+        return newMsg;
+      } catch (err) {
+        console.warn('DB addMessage failed, falling back to memory:', err.message || err);
+      }
+    }
+
+    const conv = conversations.find(c => c.id === conversationId);
+    if (conv) {
+      conv.messages.push(newMsg);
+      conv.lastMessage = newMsg.content;
+    }
+    return newMsg;
+  },
+
+  assignConversation: async (conversationId, agentId) => {
+    if (db.isConfigured) {
+      try {
+        const pool = await db.connect();
+        await pool.request()
+          .input('conversationId', db.mssql.NVarChar(50), conversationId)
+          .input('agentId', db.mssql.NVarChar(50), agentId)
+          .query('UPDATE dbo.conversations SET assignedTo = @agentId WHERE id = @conversationId');
+        return { success: true };
+      } catch (err) {
+        console.error('Error assigning conversation:', err);
+        return { success: false, error: err.message };
+      }
+    }
+
+    const conv = conversations.find(c => c.id === conversationId);
+    if (conv) {
+      conv.assignedTo = agentId;
+      return { success: true };
+    }
+    return { success: false, error: 'Conversation not found' };
+  },
+
+  updateConversationStatus: async (conversationId, status) => {
+    if (db.isConfigured) {
+      try {
+        const pool = await db.connect();
+        await pool.request()
+          .input('conversationId', db.mssql.NVarChar(50), conversationId)
+          .input('status', db.mssql.NVarChar(20), status)
+          .query('UPDATE dbo.conversations SET status = @status WHERE id = @conversationId');
+        return { success: true };
+      } catch (err) {
+        console.error('Error updating conversation status:', err);
+        return { success: false, error: err.message };
+      }
+    }
+
+    const conv = conversations.find(c => c.id === conversationId);
+    if (conv) {
+      conv.status = status;
+      return { success: true };
+    }
+    return { success: false, error: 'Conversation not found' };
+  },
 };
-
-exports.getConversationById = async (id) => {
-  return conversations.find(c => c.id === id) || null;
-};
-
-exports.createConversation = async ({ name, participantId, channel }) => {
-  const conv = {
-    id: uuidv4(),
-    name: name || `Usuario ${participantId || 'anon'}`,
-    participantId: participantId || uuidv4(),
-    channel: channel || 'unknown',
-    lastMessage: null,
-    timestamp: new Date().toISOString(),
-    status: 'open',
-    unread: 0,
-    messages: []
-  };
-  conversations.unshift(conv);
-  return conv;
-};
-
-exports.addMessage = async (conversationId, message) => {
-  const conv = conversations.find(c => c.id === conversationId);
-  if (!conv) return null;
-  const msg = { id: uuidv4(), from: message.from || 'agent', text: message.text, timestamp: new Date().toISOString() };
-  conv.messages.push(msg);
-  conv.lastMessage = message.text;
-  conv.timestamp = new Date().toISOString();
-  conv.unread = message.from === 'agent' ? 0 : (conv.unread || 0) + 1;
-  return msg;
-};
-
-exports._internal = { conversations };
