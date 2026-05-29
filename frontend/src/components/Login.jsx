@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MessageCircle, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import apiClient from '../services/api';
 
 export default function Login({ setIsAuthenticated }) {
   const [email, setEmail] = useState('');
@@ -7,11 +8,32 @@ export default function Login({ setIsAuthenticated }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
   const [companyName, setCompanyName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Aquí iría la lógica de autenticación real
-    setIsAuthenticated(true);
+    setError('');
+    setLoading(true);
+
+    try {
+      const endpoint = isSignup ? '/auth/register' : '/auth/login';
+      const payload = isSignup
+        ? { email, password, name: companyName }
+        : { email, password };
+
+      const response = await apiClient.post(endpoint, payload);
+
+      if (response.data?.token) {
+        localStorage.setItem('connex_token', response.data.token);
+        localStorage.setItem('connex_user', JSON.stringify(response.data.user));
+        setIsAuthenticated(true);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al autenticar. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,6 +55,12 @@ export default function Login({ setIsAuthenticated }) {
           <p className="text-gray-400 text-center mb-8">
             {isSignup ? 'Únete a CONNEX hoy' : 'Inicia sesión en tu cuenta'}
           </p>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-600/20 border border-red-600 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignup && (
@@ -100,9 +128,10 @@ export default function Login({ setIsAuthenticated }) {
 
             <button
               type="submit"
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold transition mt-6"
+              disabled={loading}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-semibold transition mt-6"
             >
-              {isSignup ? 'Crear Cuenta' : 'Inicia Sesión'}
+              {loading ? 'Procesando...' : (isSignup ? 'Crear Cuenta' : 'Inicia Sesión')}
             </button>
           </form>
 

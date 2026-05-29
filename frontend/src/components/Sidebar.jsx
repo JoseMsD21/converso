@@ -1,13 +1,19 @@
 import React from 'react';
 import { MessageCircle, Users, Settings, BarChart3, LogOut, Plus } from 'lucide-react';
 
-export default function Sidebar({ setCurrentView, currentView }) {
+export default function Sidebar({ setCurrentView, currentView, onLogout }) {
   const menuItems = [
     { id: 'inbox', label: 'Bandeja de Entrada', icon: MessageCircle },
     { id: 'contacts', label: 'Contactos', icon: Users },
     { id: 'reports', label: 'Reportes', icon: BarChart3 },
     { id: 'settings', label: 'Configuración', icon: Settings }
   ];
+
+  const handleLogout = () => {
+    localStorage.removeItem('connex_token');
+    localStorage.removeItem('connex_user');
+    onLogout?.();
+  };
 
   return (
     <aside className="w-72 bg-gradient-to-b from-gray-900 to-gray-800 shadow-lg flex flex-col border-r border-gray-700">
@@ -89,7 +95,7 @@ export default function Sidebar({ setCurrentView, currentView }) {
           <p className="text-sm text-gray-300 font-semibold mb-1">Mi Empresa</p>
           <p className="text-xs text-gray-400">Plan Profesional</p>
         </div>
-        <button className="w-full flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-700 rounded-lg text-gray-300 transition text-sm">
+        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-2 hover:bg-gray-700 rounded-lg text-gray-300 transition text-sm">
           <LogOut size={16} />
           Cerrar Sesión
         </button>

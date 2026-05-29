@@ -97,10 +97,12 @@ export default function Inbox({ searchTerm = '', filterStatus = 'all' }) {
   }, [selectedConversation?.messages]);
 
   const filteredConversations = conversations.filter(conv => {
-    const matchesSearch = !searchTerm || 
-      (conv.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchesSearch = !searchTerm ||
+      (conv.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (conv.lastMessage || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+
+    if (filterStatus === 'all') return matchesSearch;
+    return matchesSearch && (conv.status || 'open') === filterStatus;
   });
 
   if (loading) {

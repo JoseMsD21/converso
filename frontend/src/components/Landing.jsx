@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, MessageCircle, Users, BarChart3, Zap, Globe, Lock } from 'lucide-react';
 
-export default function Landing() {
+export default function Landing({ setShowLanding }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Navigation */}
@@ -16,7 +16,7 @@ export default function Landing() {
           <div className="flex items-center gap-6">
             <a href="#features" className="text-gray-300 hover:text-white transition">Características</a>
             <a href="#pricing" className="text-gray-300 hover:text-white transition">Precios</a>
-            <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold transition">
+            <button onClick={() => setShowLanding(false)} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold transition">
               Iniciar Sesión
             </button>
           </div>
@@ -33,7 +33,7 @@ export default function Landing() {
             Conecta con tus clientes en WhatsApp, Telegram, Facebook y más. Gestiona todas tus conversaciones desde una única plataforma impulsada por IA.
           </p>
           <div className="flex items-center justify-center gap-4">
-            <button className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold text-lg transition flex items-center gap-2">
+            <button onClick={() => setShowLanding(false)} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold text-lg transition flex items-center gap-2">
               Comenzar Gratis
               <ArrowRight size={20} />
             </button>
@@ -141,7 +141,7 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold text-white mb-6">¿Listo para transformar tu atención al cliente?</h2>
           <p className="text-gray-400 text-lg mb-8">Únete a los equipos que ya confían en CONNEX</p>
-          <button className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold text-lg transition">
+          <button onClick={() => setShowLanding(false)} className="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold text-lg transition">
             Obtén 14 Días Gratis
           </button>
         </div>
