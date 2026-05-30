@@ -7,4 +7,5 @@ module.exports = async function routes(fastify, options) {
   // Protected: require valid JWT
   fastify.post('/conversations', { preHandler: auth, schema: { body: { type: 'object' } } }, chatController.createConversation);
   fastify.post('/conversations/:id/messages', { preHandler: auth, schema: { body: { type: 'object' } } }, chatController.postMessage);
+  fastify.post('/conversations/:conversationId/assign-agent', { preHandler: auth, schema: { body: { type: 'object' } } }, chatController.assignConversation);
 };

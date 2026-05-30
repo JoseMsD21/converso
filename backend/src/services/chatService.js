@@ -117,27 +117,37 @@ module.exports = {
     return newMsg;
   },
 
-  assignConversation: async (conversationId, agentId) => {
+  assignConversationToAgent: async (conversationId, agentId, agentService) => {
+    // Validate conversation exists
+    const conv = await module.exports.getConversationById(conversationId);
+    if (!conv) return null;
+
+    // Validate agent exists
+    const agent = await agentService.getAgentById(agentId);
+    if (!agent) return null;
+
+    const assignedAt = new Date().toISOString();
+
     if (db.isConfigured) {
       try {
         const pool = await db.connect();
         await pool.request()
           .input('conversationId', db.mssql.NVarChar(50), conversationId)
           .input('agentId', db.mssql.NVarChar(50), agentId)
-          .query('UPDATE dbo.conversations SET assignedTo = @agentId WHERE id = @conversationId');
-        return { success: true };
+          .query('UPDATE dbo.conversations SET assignedTo = @agentId, assignedAt = SYSUTCDATETIME() WHERE id = @conversationId');
+        return { ...conv, assignedTo: agentId, assignedAt };
       } catch (err) {
-        console.error('Error assigning conversation:', err);
-        return { success: false, error: err.message };
+        console.warn('DB assignConversationToAgent failed, falling back to memory:', err.message || err);
       }
     }
 
-    const conv = conversations.find(c => c.id === conversationId);
-    if (conv) {
-      conv.assignedTo = agentId;
-      return { success: true };
+    const convInMemory = conversations.find(c => c.id === conversationId);
+    if (convInMemory) {
+      convInMemory.assignedTo = agentId;
+      convInMemory.assignedAt = assignedAt;
+      return convInMemory;
     }
-    return { success: false, error: 'Conversation not found' };
+    return null;
   },
 
   updateConversationStatus: async (conversationId, status) => {

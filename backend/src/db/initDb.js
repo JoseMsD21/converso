@@ -98,9 +98,19 @@ async function initDb() {
 
     await pool.request().query(createConversations);
     console.log('✓ Table [conversations] ready');
-    
+
     await pool.request().query(createMessages);
     console.log('✓ Table [messages] ready');
+
+    // Add assignedAt column to conversations if it doesn't exist (migration)
+    const addAssignedAt = `
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.conversations') AND name = 'assignedAt')
+      BEGIN
+        ALTER TABLE dbo.conversations ADD assignedAt DATETIME2 NULL
+      END
+    `;
+    await pool.request().query(addAssignedAt);
+    console.log('✓ Column [conversations.assignedAt] ready');
 
     console.log('\n✓ SQL Server: base de datos y tablas inicializadas correctamente');
     return true;

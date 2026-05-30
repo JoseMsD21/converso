@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MessageCircle, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import authService from '../services/authService';
 
 export default function Login({ setIsAuthenticated }) {
   const [email, setEmail] = useState('');
@@ -7,11 +8,45 @@ export default function Login({ setIsAuthenticated }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
   const [companyName, setCompanyName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const validateInputs = () => {
+    if (!email.trim() || !password.trim()) {
+      setError('El email y la contraseña son obligatorios');
+      return false;
+    }
+    if (!password.match(/^.{6,}$/)) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return false;
+    }
+    if (isSignup && !companyName.trim()) {
+      setError('El nombre de la empresa es obligatorio');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Aquí iría la lógica de autenticación real
-    setIsAuthenticated(true);
+    setError(null);
+
+    if (!validateInputs()) return;
+
+    setLoading(true);
+    try {
+      if (isSignup) {
+        await authService.register(companyName, email, password);
+      } else {
+        await authService.login(email, password);
+      }
+      setIsAuthenticated(true);
+    } catch (err) {
+      const message = err.response?.data?.message || 'Credenciales inválidas';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,6 +68,12 @@ export default function Login({ setIsAuthenticated }) {
           <p className="text-gray-400 text-center mb-8">
             {isSignup ? 'Únete a CONNEX hoy' : 'Inicia sesión en tu cuenta'}
           </p>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded-lg">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignup && (
@@ -100,9 +141,10 @@ export default function Login({ setIsAuthenticated }) {
 
             <button
               type="submit"
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-semibold transition mt-6"
+              disabled={loading}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed rounded-lg text-white font-semibold transition mt-6"
             >
-              {isSignup ? 'Crear Cuenta' : 'Inicia Sesión'}
+              {loading ? (isSignup ? 'Creando cuenta...' : 'Iniciando sesión...') : (isSignup ? 'Crear Cuenta' : 'Inicia Sesión')}
             </button>
           </form>
 
@@ -118,10 +160,10 @@ export default function Login({ setIsAuthenticated }) {
 
           {/* Social Buttons */}
           <div className="flex gap-3 mb-6">
-            <button className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm font-semibold transition">
+            <button type="button" className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm font-semibold transition">
               Google
             </button>
-            <button className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm font-semibold transition">
+            <button type="button" className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm font-semibold transition">
               GitHub
             </button>
           </div>
@@ -130,7 +172,11 @@ export default function Login({ setIsAuthenticated }) {
           <div className="text-center text-gray-400 text-sm">
             {isSignup ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
             <button
-              onClick={() => setIsSignup(!isSignup)}
+              type="button"
+              onClick={() => {
+                setIsSignup(!isSignup);
+                setError(null);
+              }}
               className="text-blue-400 hover:text-blue-300 font-semibold transition"
             >
               {isSignup ? 'Inicia sesión' : 'Regístrate'}

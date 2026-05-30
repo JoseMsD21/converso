@@ -39,28 +39,58 @@ exports.postMessage = async (request, reply) => {
     const { id } = request.params;
     const { content, senderId } = request.body || {};
     if (!content) return sendError(reply, 'Mensaje vacío', 400);
-    
+
     const msg = await chatService.addMessage(id, { content, senderId });
     if (!msg) return sendError(reply, 'Conversación no encontrada', 404);
-    
+
     // Emit Socket.IO event if server is available
     try {
       if (request.server && request.server.io) {
         const io = request.server.io;
         const room = `conversation:${id}`;
-        io.to(room).emit('message', { 
-          conversationId: id, 
-          message: msg 
+        io.to(room).emit('message', {
+          conversationId: id,
+          message: msg
         });
         console.log(`Message emitted to room ${room}`);
       }
     } catch (e) {
       console.warn('Socket emit warning:', e.message);
     }
-    
+
     sendSuccess(reply, msg, 201);
   } catch (error) {
     console.error('postMessage error:', error);
     sendError(reply, 'Error al enviar mensaje', 500);
+  }
+};
+
+exports.assignConversation = async (request, reply) => {
+  try {
+    const { conversationId } = request.params;
+    const { agentId } = request.body || {};
+
+    // Validate inputs
+    if (!conversationId) return sendError(reply, 'Conversation ID is required', 400);
+    if (!agentId) return sendError(reply, 'Agent ID is required', 400);
+
+    // Assign conversation to agent
+    const updatedConv = await chatService.assignConversationToAgent(conversationId, agentId, agentService);
+
+    if (!updatedConv) return sendError(reply, 'Conversation or agent not found', 404);
+
+    // Emit Socket.IO event if available
+    try {
+      if (request.server?.io) {
+        const room = `conversation:${conversationId}`;
+        request.server.io.to(room).emit('agentAssigned', { conversationId, agentId, assignedAt: updatedConv.assignedAt });
+      }
+    } catch (e) {
+      console.warn('Socket emit warning:', e.message);
+    }
+
+    sendSuccess(reply, updatedConv, 200);
+  } catch (error) {
+    sendError(reply, 'Error assigning conversation', 500);
   }
 };
